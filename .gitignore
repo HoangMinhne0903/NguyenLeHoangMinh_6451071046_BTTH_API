@@ -1,0 +1,33 @@
+## Build folders & artifacts
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+*.dll
+*.exe
+*.pdb
+*.suo
+*.user
+*.suo
+*.sln.docstates
+
+## IDEs & Editors
+.vs/
+.vscode/
+.idea/
+*.swp
+*.suo
+*.ntvs*
+*.njsproj
+*.sln.docstates
+
+## Secrets & Local Configs (Crucial Security)
+appsettings.Development.json
+appsettings.local.json
+*.pem
+*.key
+*.pfx
+
+## Temporary files & testing payloads
+test_payload.json
+**/TestResults/
