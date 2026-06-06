@@ -1,17 +1,17 @@
-# Facebook Page Event Pipeline
+# Hệ Thống Xử Lý Sự Kiện Facebook Page
 
-Microservices demo for receiving Facebook Page events, pushing them through Kafka, analyzing content, and executing automated actions such as replying to comments or hiding spam.
+Dự án này mô phỏng một hệ thống microservices dùng để nhận sự kiện từ Facebook Page, đẩy dữ liệu qua Kafka, phân tích nội dung và thực hiện các hành động tự động như trả lời bình luận hoặc ẩn bình luận spam.
 
-## Overview
+## 1. Tổng quan
 
-This project is organized as an event-driven pipeline with four .NET services:
+Hệ thống được chia thành 4 service chính:
 
-- `webhook-service`: receives Facebook webhook events and publishes normalized data to Kafka.
-- `core-service`: consumes raw events, applies moderation and classification rules, then emits action commands.
-- `backend-api`: consumes commands, calls Facebook Graph API, and persists processing state.
-- `retry-service`: retries failed commands and moves unrecoverable messages to `dead_letter`.
+- `webhook-service`: nhận webhook từ Facebook và publish dữ liệu chuẩn hóa vào Kafka.
+- `core-service`: consume dữ liệu thô, phân tích nội dung và sinh command xử lý.
+- `backend-api`: consume command, gọi Facebook Graph API và lưu trạng thái vào database.
+- `retry-service`: xử lý retry các command lỗi và chuyển sang `dead_letter` nếu vượt quá số lần thử lại.
 
-## Architecture
+## 2. Kiến trúc xử lý
 
 ```text
 Facebook Page
@@ -24,18 +24,18 @@ Facebook Page
     -> Kafka: send_retry / dead_letter
 ```
 
-## Services
+## 3. Mô tả từng service
 
 ### `webhook-service` (`http://localhost:3001`)
 
-Responsibilities:
+Chức năng:
 
-- verify the Facebook webhook callback
-- validate incoming signatures for real Facebook requests
-- normalize comment, feed, message, and reaction events
-- publish normalized payloads to Kafka topic `raw_events`
+- xác thực webhook callback với Facebook
+- kiểm tra chữ ký request thật từ Facebook
+- chuẩn hóa event comment, feed, message, reaction
+- publish dữ liệu vào topic `raw_events`
 
-Useful endpoints:
+Endpoint chính:
 
 - `GET /health`
 - `GET /webhook`
@@ -44,47 +44,47 @@ Useful endpoints:
 
 ### `core-service` (`http://localhost:3002`)
 
-Responsibilities:
+Chức năng:
 
 - consume `raw_events`
-- detect spam, duplicate content, severe toxic content, and blacklist cases
-- classify normal content and create action commands
-- publish commands to `reply_commands`
+- phát hiện spam, nội dung lặp, toxic comment và blacklist nội bộ
+- phân loại nội dung bình thường
+- tạo command và publish sang `reply_commands`
 
-Useful endpoint:
+Endpoint chính:
 
 - `GET /health`
 
 ### `backend-api` (`http://localhost:3000`)
 
-Responsibilities:
+Chức năng:
 
-- consume `reply_commands` and `send_retry`
-- call Facebook Graph API to reply or hide comments
-- store idempotency keys, event tracking, and failed commands in SQL Server
-- publish failed commands to `send_failed`
+- consume `reply_commands` và `send_retry`
+- gọi Facebook Graph API để reply hoặc hide comment
+- lưu `IdempotencyKeys`, `EventTrackings`, `FailedCommands` vào SQL Server
+- publish command lỗi sang `send_failed`
 
-Useful endpoint:
+Endpoint chính:
 
 - `GET /health`
 
 ### `retry-service` (`http://localhost:3003`)
 
-Responsibilities:
+Chức năng:
 
 - consume `send_failed`
-- retry commands with exponential backoff
-- republish retry attempts to `send_retry`
-- move exhausted commands to `dead_letter`
+- retry command theo exponential backoff
+- republish sang `send_retry`
+- đưa message sang `dead_letter` nếu lỗi quá số lần cho phép
 
-Useful endpoints:
+Endpoint chính:
 
 - `GET /health`
 - `GET /status`
 
-## Shared Models
+## 4. Shared Models
 
-The `shared-models` project contains the DTOs exchanged between services, including:
+Project `shared-models` chứa các model dùng chung giữa các service:
 
 - `NormalizedEvent`
 - `CommandEvent`
@@ -92,9 +92,7 @@ The `shared-models` project contains the DTOs exchanged between services, includ
 - `ApiResponse`
 - `EventState`
 
-## Kafka Topics
-
-The main topics used in the pipeline are:
+## 5. Các Kafka topic sử dụng
 
 - `raw_events`
 - `reply_commands`
@@ -102,9 +100,9 @@ The main topics used in the pipeline are:
 - `send_retry`
 - `dead_letter`
 
-## Local Stack
+## 6. Hạ tầng local
 
-Docker Compose provisions:
+`docker-compose.yml` đang cấu hình các thành phần sau:
 
 - Zookeeper
 - Kafka
@@ -114,17 +112,15 @@ Docker Compose provisions:
 - Alertmanager
 - Kafka exporter
 
-Important local ports:
+Port quan trọng:
 
 - Kafka UI: `http://localhost:8085`
-- SQL Server: `localhost,1435`
 - Kafka broker: `localhost:9092`
+- SQL Server: `localhost,1435`
 - Prometheus: `http://localhost:9090`
 - Alertmanager: `http://localhost:9093`
 
-## Configuration
-
-Before running the system, update these placeholders:
+## 7. Cấu hình cần thay trước khi chạy
 
 ### `webhook-service/appsettings.json`
 
@@ -156,18 +152,18 @@ Before running the system, update these placeholders:
 }
 ```
 
-## Run Locally
+## 8. Cách chạy local
 
-### 1. Start infrastructure
+### Bước 1: chạy hạ tầng Docker
 
 ```powershell
 cd D:\code\nam3\Ki_II\API\Thuc_hanh\Api_facebook
 docker-compose up -d zookeeper kafka sqlserver kafka-ui
 ```
 
-### 2. Start services
+### Bước 2: chạy các service
 
-Open four terminals and run:
+Mở 4 terminal riêng:
 
 #### Terminal 1
 
@@ -197,69 +193,70 @@ cd D:\code\nam3\Ki_II\API\Thuc_hanh\Api_facebook\retry-service
 dotnet run
 ```
 
-### 3. Expose webhook with ngrok
+### Bước 3: chạy ngrok
 
 ```powershell
 ngrok http 3001
 ```
 
-Use the generated HTTPS URL in Facebook Developer:
+Dùng URL HTTPS do ngrok cấp để khai báo trên Meta for Developers:
 
 - Callback URL: `https://<ngrok-domain>/webhook`
 - Verify Token: `fb_webhook_verify_2026_6c2b9d41a8f7`
 
-## Health Checks
+## 9. Link kiểm tra nhanh
 
 - `http://localhost:3001/health`
 - `http://localhost:3002/health`
 - `http://localhost:3000/health`
 - `http://localhost:3003/health`
+- `http://localhost:8085`
 
-## Facebook Webhook Notes
+## 10. Lưu ý về webhook Facebook
 
-- The real route is `/webhook`, not `/api/webhook`.
-- `VerifyToken` is user-defined and must match the value entered in Meta for Developers.
-- `PageAccessToken` must be valid. If it expires, `backend-api` will fail when calling Graph API and commands will move into the retry flow.
+- Route thật của project là `/webhook`, không phải `/api/webhook`.
+- `VerifyToken` là chuỗi tự đặt, phải trùng giữa Facebook Developer và file config.
+- `PageAccessToken` phải còn hạn. Nếu token hết hạn thì `backend-api` sẽ không reply được và command sẽ đi vào luồng retry.
 
-## Testing
+## 11. Cách test
 
-### Test webhook verification locally
+### Test verify webhook local
 
-Open:
+Mở link:
 
 ```text
 http://localhost:3001/webhook?hub.mode=subscribe&hub.verify_token=fb_webhook_verify_2026_6c2b9d41a8f7&hub.challenge=12345
 ```
 
-Expected response:
+Nếu đúng, service sẽ trả:
 
 ```text
 12345
 ```
 
-### Test with a mock event
+### Test mock event
 
-You can post a mock event to:
+Có thể gửi mock event vào:
 
 ```text
 POST http://localhost:3001/webhook/test-mock
 ```
 
-This is useful for validating the Kafka pipeline before sending real Facebook events.
+Mục đích là kiểm tra pipeline Kafka trước khi test với Facebook thật.
 
-### Test retry flow manually
+### Test retry flow
 
-Produce a fake command into `send_failed` with Kafka UI to validate retry and dead-letter behavior.
+Có thể produce một message giả vào topic `send_failed` trên Kafka UI để kiểm tra `retry-service` và `dead_letter`.
 
-## Database Tables
+## 12. Database
 
-The main tables used by `backend-api` are:
+Các bảng chính được `backend-api` sử dụng:
 
 - `EventTrackings`
 - `FailedCommands`
 - `IdempotencyKeys`
 
-Example query:
+Ví dụ câu query xem lỗi:
 
 ```sql
 SELECT TOP 20
@@ -273,45 +270,45 @@ FROM FailedCommands
 ORDER BY FailedAt DESC;
 ```
 
-## Common Problems
+## 13. Một số lỗi thường gặp
 
-### Webhook verification fails
+### Webhook verify thất bại
 
-Check:
+Kiểm tra:
 
-- `webhook-service` is running on port `3001`
-- ngrok forwards to `3001`
-- the callback URL ends with `/webhook`
-- the Verify Token matches your config
+- `webhook-service` có đang chạy ở port `3001` không
+- ngrok có forward đúng `3001` không
+- callback URL có đúng `/webhook` không
+- Verify Token có khớp config không
 
-### Kafka connection errors
+### Kafka không kết nối được
 
-Check:
+Kiểm tra:
 
 - `docker ps`
-- Kafka is up on `localhost:9092`
-- services were started after Kafka became healthy
+- Kafka đã lên ở `localhost:9092` chưa
+- service .NET có chạy sau khi Kafka sẵn sàng hay không
 
-### Facebook replies fail
+### Facebook không reply
 
-Check:
+Kiểm tra:
 
-- `Facebook:PageAccessToken` is still valid
-- the page is subscribed to the app
-- the app has the required Page permissions
+- `Facebook:PageAccessToken` còn hạn không
+- app đã subscribe vào page chưa
+- page đã bật field `feed` chưa
 
-### `send_failed` appears empty
+### `send_failed` không thấy message
 
-This can happen if `retry-service` consumes the message immediately.  
-To capture it in Kafka UI, stop `retry-service` first, then trigger a new failure.
+Trường hợp này có thể xảy ra nếu `retry-service` consume message quá nhanh.  
+Muốn chụp topic `send_failed`, hãy tắt `retry-service` trước rồi gây lỗi lại.
 
-## Report Files
+## 14. File báo cáo trong repo
 
-The repository includes Word report artifacts and generation scripts:
+Repo hiện có sẵn các file hỗ trợ làm báo cáo:
 
 - `Bao_cao_da_dien_noi_dung_Facebook_Page_API.docx`
 - `scripts/create_filled_report.py`
 - `scripts/create_report_template.py`
 - `scripts/create_simple_report_template.py`
 
-These are intended to help prepare a submission report with screenshots and implementation notes.
+Các file này dùng để tạo mẫu báo cáo Word, chèn ảnh minh chứng và mô tả quá trình làm bài.
